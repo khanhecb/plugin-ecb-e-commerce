@@ -17,6 +17,7 @@ define('ECB_ECOMMERCE_VERSION', '1.0');
 define('ECB_ECOMMERCE_DIR', plugin_dir_path(__FILE__));
 define('ECB_ECOMMERCE_URL', plugin_dir_url(__FILE__));
 define('ECB_ECOMMERCE_INCLUDES_DIR', plugin_dir_path(__FILE__) . 'includes/');
+define('ECB_ECOMMERCE_ASSETS_DIR', plugin_dir_url(__FILE__) . 'assets/');
 
 class ECB_Commerce {
     private static $instance = null;
@@ -38,12 +39,13 @@ class ECB_Commerce {
     private function load_dependencies() {
         // Dependencies list file
         $dependencies = [
-            'wp-ecb-database.php',
-            'wp-ecb-admin.php',
-            'wp-ecb-product.php',
-            'wp-ecb-product-meta.php',
-            'wp-ecb-shortcode.php'
-        ];
+            'db/wp-ecb-database.php',
+            'admin/wp-ecb-admin.php',
+            'products/wp-ecb-product.php',
+            'products/wp-ecb-product-meta.php',
+            'shortcodes/wp-ecb-shortcode.php',
+            'users/wp-ecb-user.php',
+        ];        
 
         foreach ($dependencies as $file) {
             $file_path = ECB_ECOMMERCE_INCLUDES_DIR . $file;
