@@ -7,7 +7,6 @@ Version: 1.0
 Author: KhanhECB
 */
 
-
 if (!defined('ABSPATH')) {
     exit; // Exit if accessed directly
 }
@@ -21,7 +20,9 @@ define('ECB_ECOMMERCE_ASSETS_DIR', plugin_dir_url(__FILE__) . 'assets/');
 
 class ECB_Commerce {
     private static $instance = null;
+    private $class_instances = []; // Lưu trữ các instance lớp
 
+    // Singleton pattern - đảm bảo chỉ có một instance của lớp
     public static function get_instance() {
         if (null === self::$instance) {
             self::$instance = new self();
@@ -29,22 +30,35 @@ class ECB_Commerce {
         return self::$instance;
     }
 
+    // Hàm khởi tạo
     private function __construct() {
         $this->load_dependencies();
         $this->init_components();
-        // Thêm hook để hiển thị thông báo trong admin
-        add_action('admin_notices', [$this, 'display_admin_notices']);
+        add_action('admin_notices', [$this, 'display_admin_notices']); // Thêm hook hiển thị thông báo
     }
 
+
+    // Thêm thông báo cảnh báo vào Admin
+    private function add_warning_notice($message) {
+        add_action('admin_notices', function() use ($message) {
+            echo '<div class="notice notice-warning is-dismissible"><p>' . esc_html($message) . '</p></div>';
+        });
+    }
+
+    // Phương thức để hiển thị thông báo trong admin
+    public function display_admin_notices() {
+        // Không cần thêm logic ở đây vì thông báo đã được thêm trực tiếp qua add_action
+    }
+
+
+    // Tải các lớp phụ thuộc
     private function load_dependencies() {
-        // Dependencies list file
         $dependencies = [
-            'db/wp-ecb-database.php',
             'admin/wp-ecb-admin.php',
-            'products/wp-ecb-product.php',
-            'products/wp-ecb-product-meta.php',
-            'shortcodes/wp-ecb-shortcode.php',
-            'users/wp-ecb-user.php',
+            'db/wp-ecb-database.php',
+            'product/wp-ecb-product.php',
+            'shortcode/wp-ecb-shortcode.php',
+            'user/wp-ecb-user.php',
         ];        
 
         foreach ($dependencies as $file) {
@@ -54,59 +68,48 @@ class ECB_Commerce {
             } else {
                 error_log("File not found: " . $file_path);
                 $this->add_warning_notice("Plugin ECB Ecommerce - Dependency file missing: $file");
+                // Dừng plugin nếu tệp quan trọng bị thiếu
+                if ($file == 'db/wp-ecb-database.php') {
+                    deactivate_plugins(plugin_basename(__FILE__));
+                    wp_die('Critical error: Missing required database file. Plugin deactivated.');
+                }
             }
         }
     }
 
+    // Khởi tạo các lớp và đối tượng cần thiết
     private function init_components() {
-        // Initialize the database
-        if (class_exists('ecb_ecommerce_db')) {
-            $this->db = new ecb_ecommerce_db();
-        } else {
-            $this->add_warning_notice("Plugin ECB Ecommerce - Class 'ecb_ecommerce_db' not found.");
-        }
-
-        // Initialize the admin
-        if (class_exists('ecb_ecommerce_admin')) {
-            $this->admin = new ecb_ecommerce_admin();
-        } else {
-            $this->add_warning_notice("Plugin ECB Ecommerce - Class 'ecb_ecommerce_admin' not found.");
-        }
-
-        // Initialize the product
-        if (class_exists('ecb_ecommerce_product')) {
-            $this->product = new ecb_ecommerce_product();
-        } else {
-            $this->add_warning_notice("Plugin ECB Ecommerce - Class 'ecb_ecommerce_product' not found.");
-        }
-
-        // Initialize the product meta
-        if (class_exists('ecb_ecommerce_product_meta')) {
-            $this->product_meta = new ecb_ecommerce_product_meta();
-        } else {
-            $this->add_warning_notice("Plugin ECB Ecommerce - Class 'ecb_ecommerce_product_meta' not found.");
-        }
-
-        // Initialize the shortcode
-        if (class_exists('ecb_ecommerce_shortcode')) {
-            $this->shortcode = new ecb_ecommerce_shortcode();
-        } else {
-            $this->add_warning_notice("Plugin ECB Ecommerce - Class 'ecb_ecommerce_shortcode' not found.");
+        $class_list = [
+            'ecb_ecommerce_admin',
+            'ecb_ecommerce_db',
+            'ecb_ecommerce_product',
+            'ecb_ecommerce_shortcode',
+            'ecb_ecommerce_user',
+        ];
+        foreach ($class_list as $class_name) {
+            if (class_exists($class_name)) {
+                $this->$class_name = new $class_name();
+            } else {
+                error_log("Class not found: " . $class_name);
+                $this->add_warning_notice("Plugin ECB Ecommerce - Class missing: $class_name");
+            }
         }
     }
 
-    private function add_warning_notice($message) {
-        add_action('admin_notices', function() use ($message) {
-            echo '<div class="notice notice-warning is-dismissible"><p>' . esc_html($message) . '</p></div>';
-        });
+    // Tải và tạo instance cho các lớp
+    public function load_class($class_name) {
+        $class_file = ECB_ECOMMERCE_INCLUDES_DIR . strtolower($class_name) . '.php';
+        if (file_exists($class_file)) {
+            $this->class_instances[$class_name] = new $class_name();
+        } else {
+            error_log("Class file not found: " . $class_file);
+            $this->add_warning_notice("Plugin ECB Ecommerce - Class file missing: $class_file");
+        }
     }
 
-    // Phương thức để hiển thị thông báo
-    public function display_admin_notices() {
-        // Không cần thêm logic ở đây vì thông báo đã được thêm trực tiếp qua add_action
-    }
 }
 
+// Khởi tạo instance của plugin khi WordPress đã tải xong
 add_action('plugin_loaded', function() {
     $ecb_commerce = ECB_Commerce::get_instance();
 });
